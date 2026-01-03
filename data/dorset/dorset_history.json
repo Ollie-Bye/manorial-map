@@ -1,0 +1,26 @@
+[
+    {"id":"man_bere", "start":1239, "end":1264, "lord":"Simon de Montfort", "family":"Montfort"},
+    {"id":"man_bere", "start":1265, "end":1295, "lord":"Edmund Crouchback", "family":"Lancaster"},
+    {"id":"man_bere", "start":1296, "end":1321, "lord":"Thomas", "family":"Lancaster"},
+    {"id":"man_bere", "start":1324, "end":1344, "lord":"Henry", "family":"Lancaster"},
+    {"id":"man_bere", "start":1345, "end":1360, "lord":"Henry of Grosmont", "family":"Lancaster"},
+    {"id":"man_bere", "start":1362, "end":1398, "lord":"John of Gaunt", "family":"Lancaster"},
+    {"id":"man_bere", "start":1399, "end":1546, "lord":"The Monarch", "family":"Royal"},
+    {"id":"man_bere", "start":1547, "end":1732, "lord":"The Turbervilles", "family":"Turberville"},
+    {"id":"man_bere", "start":1733, "end":1922, "lord":"The Drax Family", "family":"Drax"},
+    
+    {"id":"man_mlbs", "start":1066, "end":1085, "lord":"Doda", "family":"Saxon"},
+    {"id":"man_mlbs", "start":1086, "end":1150, "lord":"Odo of Everbold", "family":"Norman"},
+    {"id":"man_mlbs", "start":1388, "end":1440, "lord":"The Turbervills", "family":"Turberville"},
+    {"id":"man_mlbs", "start":1441, "end":1548, "lord":"The Mortons", "family":"Morton"},
+    {"id":"man_mlbs", "start":1549, "end":1698, "lord":"The Morton Family", "family":"Morton"},
+    {"id":"man_mlbs", "start":1699, "end":1922, "lord":"The Morton-Pleydell Family", "family":"Morton-Pleydell"},
+    
+    {"id":"man_hyde", "start":1186, "end":1539, "lord":"Abbey of Tarrant", "family":"Church"},
+    {"id":"man_hyde", "start":1540, "end":1650, "lord":"The Trenchard Family", "family":"Trenchard"},
+    {"id":"man_hyde", "start":1651, "end":1922, "lord":"The Ryves Family", "family":"Ryves"},
+    
+    {"id":"man_shtr", "start":1400, "end":1589, "lord":"Unknown Lords", "family":"N/A"},
+    {"id":"man_shtr", "start":1590, "end":1750, "lord":"The Morton Family", "family":"Morton"},
+    {"id":"man_shtr", "start":1751, "end":1922, "lord":"The Pleydell Family", "family":"Pleydell"}
+]
