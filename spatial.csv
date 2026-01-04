@@ -1,0 +1,11 @@
+unit_id,name,prefix,type,description,geometry
+man_bere,Bere Regis,Manor of,seigneurial,"Early royal manor based on eponymous parish, also known as Whitelovington. Enfeoffed to Simon de Montfort and the Earldom of Leicester, then the house of Lancaster, albeit ½ given to Abbey of Tarrant. Royal bailiffs managed it from 1265-68. Merged into royal estate with Leicester in 1399; Shitterton separated around this time. The abbey's share was given to Turberville family during the Dissolution. The three co-ruling heiresses sold it to Henry Drax in 1733; managed as part of the Drax family's Charborough estate thereafter.",man_bere
+hon_leic,Leicester,Honour of,seigneurial,,
+duc_lncr,Lancaster,Duchy of,seigneurial,,
+aby_trnt,Tarrant,Abbey of,seigneurial,,
+man_shtr,Shitterton,Manor of,seigneurial,"Originally part of Bere Regis. First known lord fl. c. 1400, relations of successors unclear. From 1590 held by local Morton family, already lords of Milborne Stileham. Sequestrated by Parliament 1645-53, returned to Mortons after. Heiress Anne Morton brought it to the Pleydell family. Post-1800 ownership unclear.",man_shtr
+man_mlbs,Milborne Stileham,Manor of,seigneurial,"Early Manor. Owned by the monk Doda in 1066, and Odo, of Everbold in 1086. Later passed to the priory of Okeburn, a cell of the abbey of Bec (in Normandy). By 1388 a moiety had passed to the Turbervills, as a fief of the duke of Somerset, who still owned it in 14'23. This moiety was later owned by John Morton, bishop of Ely, who probably inherited it from his father, Richard Morton (d. after 1435). The priory's moiety was seized during the Dissolution, added to the duke's moiety in 15'47. Alienated to the Morton family in 1549. Heiress Anne Morton brought it to the Pleydell family.",man_mlbs
+man_hyde,Hyde,Manor of,seigneurial,"Originally part of Bere Regis. Donated to Tarrant Abbey (either upon its founding in 1186 or later). Given to Trenchard family after the Dissolution, sold to Ryves family after Thomas Trenchard died. Sold to William Gaisford Peach late 18ᵗʰ cent., then Radclyffe family.",man_hyde
+pry_okb,Okeburn,Priory of,seigneurial,,
+hon_wgmo,Wigmore,Honour of,seigneurial,,
+duc_smrt,Somerset,Duchy of,seigneurial,,
