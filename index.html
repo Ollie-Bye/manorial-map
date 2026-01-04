@@ -59,10 +59,13 @@ async function loadCounty(countyId) {
     const county = manifest.counties.find(c => c.id === countyId);
     
     try {
+        // We use [ ] to fetch both files simultaneously
         const [shapeRes, histRes] = await Promise.all([
-            fetch(`data/${countyId}/${countyId}_shapes.json`),
-            fetch(`data/${countyId}/${countyId}_history.json`)
+            fetch(`./data/${countyId}/${countyId}_shapes.json`),
+            fetch(`./data/${countyId}/${countyId}_history.json`)
         ]);
+
+        if (!shapeRes.ok || !histRes.ok) throw new Error("Files not found");
 
         currentShapes = await shapeRes.json();
         currentHistory = await histRes.json();
@@ -71,6 +74,7 @@ async function loadCounty(countyId) {
         renderMap();
     } catch (err) {
         console.error("Error loading county data:", err);
+        alert("Could not load county data. Check file names!");
     }
 }
 
