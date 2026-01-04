@@ -22,53 +22,88 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Global variables to store our "Brain" and "Body"
+// 1. GLOBAL VARIABLES
 let manifest = null;
 let currentShapes = null;
 let currentHistory = null;
-const map = L.map('map').setView([52.0, -1.5], 7); // Start centered on England
+let geojsonLayer = null;
 
+const map = L.map('map').setView([52.0, -1.5], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// 1. Load the Manifest first
+// 2. THE INITIALIZER (Loads manifest on page load)
 async function init() {
-    const response = await fetch('data/manifest.json');
-    manifest = await response.json();
-    setupCountySelector();
+    try {
+        const response = await fetch('data/manifest.json');
+        manifest = await response.json();
+        setupCountySelector();
+    } catch (err) {
+        console.error("Failed to load manifest:", err);
+    }
 }
 
-// 2. Dynamically build a dropdown menu (or you can just click the map)
+// 3. DROPDOWN MENU SETUP
 function setupCountySelector() {
     const selector = document.createElement('select');
-    selector.style.position = 'absolute';
-    selector.style.top = '10px';
-    selector.style.left = '50px';
-    selector.style.zIndex = '1000';
+    selector.style = "position:absolute; top:10px; left:60px; z-index:1000; padding:5px;";
     
-    selector.innerHTML = '<option>Select a County</option>' + 
+    selector.innerHTML = '<option value="">Select a County</option>' + 
         manifest.counties.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     
-    selector.onchange = (e) => loadCounty(e.target.value);
+    selector.onchange = (e) => { if(e.target.value) loadCounty(e.target.value); };
     document.body.appendChild(selector);
 }
 
-// 3. The "Loader" - This works for ANY county you add in the future
+// 4. THE LOADER (Fetches specific county files)
 async function loadCounty(countyId) {
     const county = manifest.counties.find(c => c.id === countyId);
     
-    // Fetch both files at once
-    const [shapeRes, histRes] = await Promise.all([
-        fetch(`data/${countyId}/${countyId}_shapes.json`),
-        fetch(`data/${countyId}/${countyId}_history.json`)
-    ]);
+    try {
+        const [shapeRes, histRes] = await Promise.all([
+            fetch(`data/${countyId}/${countyId}_shapes.json`),
+            fetch(`data/${countyId}/${countyId}_history.json`)
+        ]);
 
-    currentShapes = await shapeRes.json();
-    currentHistory = await histRes.json();
+        currentShapes = await shapeRes.json();
+        currentHistory = await histRes.json();
 
-    map.flyTo(county.center, county.zoom);
-    renderMap();
+        map.flyTo(county.center, county.zoom);
+        renderMap();
+    } catch (err) {
+        console.error("Error loading county data:", err);
+    }
 }
 
-// ... Keep your existing renderMap and slider logic here ...
+// 5. THE RENDERER (This is the "Drawing" logic)
+function renderMap() {
+    const selectedYear = parseInt(document.getElementById('yearSlider').value);
+    
+    // Clear old shapes before drawing new ones
+    if (geojsonLayer) map.removeLayer(geojsonLayer);
 
-init(); // Start the engine
+    geojsonLayer = L.geoJSON(currentShapes, {
+        style: { color: "#3498db", weight: 2, fillOpacity: 0.5 },
+        onEachFeature: (feature, layer) => {
+            layer.on('click', () => {
+                const history = currentHistory[feature.properties.unit_id] || [];
+                const record = history.find(r => selectedYear >= r.start && selectedYear <= r.end);
+                
+                document.getElementById('details').innerHTML = record ? `
+                    <div class="info-box">
+                        <h3>${feature.properties.name}</h3>
+                        <p><b>Lord:</b> ${record.lord}</p>
+                        <p><b>Notes:</b> ${record.notes || 'No extra data'}</p>
+                    </div>` : `<h3>${feature.properties.name}</h3><p>No data for this year.</p>`;
+            });
+        }
+    }).addTo(map);
+}
+
+// 6. SLIDER LOGIC
+document.getElementById('yearSlider').oninput = function() {
+    document.getElementById('yearLabel').innerText = this.value;
+    if (currentShapes) renderMap(); // Re-draw if data is loaded
+};
+
+// START
+init();
