@@ -4,45 +4,70 @@
     <title>Manorial Map - Scalable Version</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
-        #map { flex-grow: 1; height: 100%; }
-        #sidebar { width: 350px; padding: 20px; background: #fff; border-right: 1px solid #ccc; overflow-y: auto; }
+        <style>
+    /* Sidebar Panels */
+.tenure-panel {
+    background: #f9f7f2;
+    border: 1px solid #d4c5a9;
+    padding: 15px;
+    margin-top: 20px;
+    font-family: 'Crimson Text', serif;
+}
+
+/* History Dropdown Logic */
+.history-section summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 10px 0;
+    list-style: none; /* Removes default arrow */
+    display: flex;
+    justify-content: space-between;
+}
+
+.history-section summary::-webkit-details-marker {
+    display: none; /* Hides arrow in Safari */
+}
+
+.history-section summary:after {
+    content: "︾"; /* Your exact icon */
+    color: #6a8cab;
+}
+
+.history-section[open] summary:after {
+    content: "︽";
+}
+    }
+</style>
+
+<div id="sidebar">
+    <div class="controls-container">
+        <div class="year-display">
+            <span class="arrow" onclick="adjustYear(-1)">◀</span>
+            <input type="number" id="yearInput" value="1300" onchange="updateYear(this.value)">
+            <span class="arrow" onclick="adjustYear(1)">▶</span>
+        </div>
+        <input type="range" id="yearSlider" min="1066" max="1922" value="1300" style="width:100%; accent-color:rgb(106,140,171)">
         
-        .tenure-panel {
-            background: #f9f7f2;
-            border: 1px solid #d4c5a9;
-            padding: 15px;
-            margin-top: 20px;
-            font-family: 'Crimson Text', serif;
-        }
-
-        .history-section summary {
-            cursor: pointer;
-            font-weight: bold;
-            padding: 10px 0;
-            display: flex;
-            justify-content: space-between;
-            list-style: none;
-        }
-
-        .history-section summary:after { content: "︾"; color: #6a8cab; }
-        .history-section[open] summary:after { content: "︽"; }
+        <div style="margin-top:15px;">
+            <span class="type-pill">Seigneurial</span>
+            <span style="opacity:0.6; margin-left:10px;">Ecclesiastical</span>
+        </div>
+    </div>
+    
+    <div id="objects-list">
+        </div>
+</div>
+<div id="map"></div>
     </style>
 </head>
 <body>
 
 <div id="sidebar">
     <h2>Dorset History</h2>
-    <div class="controls-container">
-        <label for="yearSlider">Year: <span id="yearLabel">1300</span></label>
-        <input type="range" id="yearSlider" min="1066" max="1922" value="1300" style="width:100%">
-    </div>
-    <hr>
-    <div id="sidebar-content">
-        <i>Click a manor to load data...</i>
-    </div>
+    <input type="range" id="yearSlider" min="1066" max="1922" value="1300" style="width:100%">
+    <div id="yearLabel" style="font-size: 2em; text-align: center;">1300</div>
+    <div id="details"><i>Click a manor to load data...</i></div>
 </div>
-
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -52,24 +77,19 @@ let currentShapes = null;
 let map, geojsonLayer;
 let selectedUnit = null;
 
-// Initialize the Map
+// 1. Initialize the Map
 map = L.map('map').setView([50.75, -2.2], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Connect the slider to the label
-const yearSlider = document.getElementById('yearSlider');
-const yearLabel = document.getElementById('yearLabel');
-yearSlider.oninput = function() {
-    yearLabel.innerText = this.value;
-    renderMap();
-};
-
+// 2. Load the Data
 async function loadData() {
     try {
+        // Load your new JSON
         const historyRes = await fetch('data/dorset/dorset_history.json');
         currentHistory = await historyRes.json();
 
-        const shapesRes = await fetch('data/dorset/shapes.json');
+        // Load your GeoJSON shapes
+        const shapesRes = await fetch('data/dorset/shapes.json'); // Ensure this filename is correct!
         currentShapes = await shapesRes.json();
 
         renderMap();
@@ -80,7 +100,8 @@ async function loadData() {
 
 function renderMap() {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
-    const year = parseInt(yearSlider.value);
+
+    const year = parseInt(document.getElementById('yearInput').value);
 
     geojsonLayer = L.geoJSON(currentShapes, {
         filter: (feature) => {
@@ -88,10 +109,12 @@ function renderMap() {
             const history = currentHistory[id] || [];
             const record = history.find(r => year >= r.start && year <= r.end);
 
+            // If there's a record, and it specifies a geometry_file, 
+            // only show this polygon if it matches that file name.
             if (record && record.geometry_file) {
                 return feature.properties.file_name === record.geometry_file;
             }
-            return true;
+            return true; // Otherwise show the base polygon
         },
         style: (feature) => {
             const id = feature.properties.unit_id;
@@ -107,6 +130,7 @@ function renderMap() {
             layer.on('click', () => {
                 selectedUnit = feature.properties.unit_id;
                 renderMap();
+                updateSidebar(year);
             });
         }
     }).addTo(map);
@@ -126,7 +150,7 @@ function updateSidebar(year) {
     sidebar.innerHTML = `
         <div class="unit-header">
             <div style="color: #666; text-transform: uppercase; font-size: 0.8rem;">${record.prefix}</div>
-            <h1 style="margin: 0; font-family: serif;">${record.name || selectedUnit}</h1>
+            <h1 style="margin: 0; font-family: 'Old Standard TT', serif;">${record.name || selectedUnit}</h1>
         </div>
 
         <div class="tenure-panel">
@@ -140,7 +164,7 @@ function updateSidebar(year) {
                 <div style="text-decoration: underline;">${record.overlord || 'The King'}</div>
                 
                 <div style="color:#6a8cab; font-size:0.9rem; margin-top:15px;">Lord</div>
-                <div style="font-size:1.3rem;">${record.lord || 'Information Missing'}</div>
+                <div style="font-size:1.3rem;">${record.lord || '<em>Information Missing</em>'}</div>
                 <div style="color:#888; font-size:0.9rem;">House of ${record.lord_family || 'Unknown'}</div>
             </div>
         </div>
@@ -152,7 +176,6 @@ function updateSidebar(year) {
     `;
 }
 
+// Start the app
 loadData();
 </script>
-</body>
-</html>
