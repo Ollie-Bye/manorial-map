@@ -1,45 +1,105 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Manorial Map - Scalable Version</title>
+    <title>Dorset Manorial Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=Old+Standard+TT:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
-        #map { flex-grow: 1; height: 100%; }
-        #sidebar { width: 350px; padding: 20px; background: #fff; border-right: 1px solid #ccc; overflow-y: auto; }
+        body { margin: 0; display: flex; height: 100vh; background: #f4f1ea; font-family: 'Crimson Text', serif; }
+        #map { flex-grow: 1; height: 100%; background: #ada79b; }
         
+        /* Sidebar Styling */
+        #sidebar { 
+            width: 380px; 
+            background: #fff; 
+            border-right: 1px solid #d4c5a9; 
+            display: flex; 
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .controls-container {
+            padding: 25px;
+            background: #fdfcf9;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Year Input Styling */
+        .year-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        #yearInput {
+            width: 80px;
+            font-size: 1.8rem;
+            text-align: center;
+            border: 1px solid #d4c5a9;
+            background: transparent;
+            font-family: 'Old Standard TT', serif;
+            color: #2c3e50;
+        }
+
+        .arrow { cursor: pointer; font-size: 1.5rem; color: #6a8cab; user-select: none; }
+
+        /* Content Area */
+        #sidebar-content { padding: 25px; overflow-y: auto; flex-grow: 1; }
+
+        /* Tenure Panel Styling */
         .tenure-panel {
             background: #f9f7f2;
             border: 1px solid #d4c5a9;
-            padding: 15px;
+            padding: 20px;
             margin-top: 20px;
-            font-family: 'Crimson Text', serif;
+            position: relative;
         }
 
+        .moiety-tag {
+            font-style: italic;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .label { color: #6a8cab; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; margin-top: 15px; }
+        .value { font-size: 1.2rem; margin-bottom: 5px; }
+        .house { color: #8c7e6d; font-size: 0.95rem; font-style: italic; }
+
+        /* History Dropdown */
+        .history-section { margin-top: 25px; border-top: 1px solid #eee; }
         .history-section summary {
+            padding: 15px 0;
             cursor: pointer;
             font-weight: bold;
-            padding: 10px 0;
             display: flex;
             justify-content: space-between;
             list-style: none;
+            color: #2c3e50;
         }
-
         .history-section summary:after { content: "︾"; color: #6a8cab; }
         .history-section[open] summary:after { content: "︽"; }
+        
+        .description { line-height: 1.6; color: #444; font-size: 1.05rem; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <h2>Dorset History</h2>
     <div class="controls-container">
-        <label for="yearSlider">Year: <span id="yearLabel">1300</span></label>
-        <input type="range" id="yearSlider" min="1066" max="1922" value="1300" style="width:100%">
+        <div class="year-display">
+            <span class="arrow" onclick="adjustYear(-1)">◀</span>
+            <input type="number" id="yearInput" value="1300" onchange="updateYear(this.value)">
+            <span class="arrow" onclick="adjustYear(1)">▶</span>
+        </div>
+        <input type="range" id="yearSlider" min="1066" max="1922" value="1300" style="width:100%; accent-color:#6a8cab" oninput="updateYear(this.value)">
     </div>
-    <hr>
+    
     <div id="sidebar-content">
-        <i>Click a manor to load data...</i>
+        <div style="text-align: center; color: #999; margin-top: 50px;">
+            <p>Select a manor on the map to view historical tenure records.</p>
+        </div>
     </div>
 </div>
 
@@ -52,55 +112,61 @@ let currentShapes = null;
 let map, geojsonLayer;
 let selectedUnit = null;
 
-// Initialize the Map
-map = L.map('map').setView([50.75, -2.2], 11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// Initialize Map
+map = L.map('map', { zoomControl: false }).setView([50.75, -2.2], 11);
+L.tileLayer('https://{s}.tile.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-// Connect the slider to the label
-const yearSlider = document.getElementById('yearSlider');
-const yearLabel = document.getElementById('yearLabel');
-yearSlider.oninput = function() {
-    yearLabel.innerText = this.value;
+// Year Navigation Functions
+function adjustYear(delta) {
+    const input = document.getElementById('yearInput');
+    updateYear(parseInt(input.value) + delta);
+}
+
+function updateYear(val) {
+    const year = Math.min(Math.max(parseInt(val), 1066), 1922);
+    document.getElementById('yearInput').value = year;
+    document.getElementById('yearSlider').value = year;
     renderMap();
-};
+}
 
 async function loadData() {
     try {
-        const historyRes = await fetch('data/dorset/dorset_history.json');
-        currentHistory = await historyRes.json();
-
-        const shapesRes = await fetch('data/dorset/shapes.json');
-        currentShapes = await shapesRes.json();
-
+        const hRes = await fetch('data/dorset/dorset_history.json');
+        currentHistory = await hRes.json();
+        
+        const sRes = await fetch('data/dorset/shapes.json');
+        currentShapes = await sRes.json();
+        
         renderMap();
     } catch (err) {
-        console.error("Error loading data files:", err);
+        console.error("Loading Error:", err);
     }
 }
 
 function renderMap() {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
-    const year = parseInt(yearSlider.value);
+    const year = parseInt(document.getElementById('yearInput').value);
 
     geojsonLayer = L.geoJSON(currentShapes, {
         filter: (feature) => {
             const id = feature.properties.unit_id;
-            const history = currentHistory[id] || [];
-            const record = history.find(r => year >= r.start && year <= r.end);
-
-            if (record && record.geometry_file) {
-                return feature.properties.file_name === record.geometry_file;
+            const records = currentHistory[id] || [];
+            const active = records.find(r => year >= r.start && year <= r.end);
+            
+            // Logic for split manors
+            if (active && active.geometry_file) {
+                return feature.properties.file_name === active.geometry_file;
             }
             return true;
         },
         style: (feature) => {
-            const id = feature.properties.unit_id;
-            const isSelected = (id === selectedUnit);
+            const isSelected = (feature.properties.unit_id === selectedUnit);
             return {
-                color: isSelected ? "#3498db" : "#7f8c8d",
-                weight: isSelected ? 4 : 1,
-                fillOpacity: isSelected ? 0.7 : 0.2,
-                fillColor: "#2c3e50"
+                color: isSelected ? "#6a8cab" : "#8c7e6d",
+                weight: isSelected ? 3 : 1,
+                fillColor: "#d4c5a9",
+                fillOpacity: isSelected ? 0.6 : 0.3
             };
         },
         onEachFeature: (feature, layer) => {
@@ -115,39 +181,35 @@ function renderMap() {
 }
 
 function updateSidebar(year) {
-    const sidebar = document.getElementById('sidebar-content');
+    const container = document.getElementById('sidebar-content');
     if (!selectedUnit || !currentHistory[selectedUnit]) return;
 
-    const history = currentHistory[selectedUnit];
-    const record = history.find(r => year >= r.start && year <= r.end) || history[0];
+    const records = currentHistory[selectedUnit];
+    const record = records.find(r => year >= r.start && year <= r.end) || records[0];
 
-    const moietyLabel = record.moiety ? `(${record.moiety} Moiety)` : "";
-
-    sidebar.innerHTML = `
+    container.innerHTML = `
         <div class="unit-header">
-            <div style="color: #666; text-transform: uppercase; font-size: 0.8rem;">${record.prefix}</div>
-            <h1 style="margin: 0; font-family: serif;">${record.name || selectedUnit}</h1>
+            <div style="color: #6a8cab; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;">${record.prefix}</div>
+            <h1 style="margin: 5px 0; font-family: 'Old Standard TT', serif; font-size: 2.2rem;">${record.name || selectedUnit}</h1>
         </div>
 
         <div class="tenure-panel">
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #d4c5a9; padding-bottom:5px;">
-                <span style="font-weight:bold;">Tenure</span>
-                <span style="font-style:italic; color:#888;">${moietyLabel}</span>
+            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #d4c5a9; padding-bottom:8px; margin-bottom: 10px;">
+                <span style="font-weight:bold; text-transform: uppercase; font-size: 0.8rem;">Current Tenure</span>
+                <span class="moiety-tag">${record.moiety ? record.moiety + ' Moiety' : ''}</span>
             </div>
             
-            <div style="margin-top:15px;">
-                <div style="color:#6a8cab; font-size:0.9rem;">Held of</div>
-                <div style="text-decoration: underline;">${record.overlord || 'The King'}</div>
-                
-                <div style="color:#6a8cab; font-size:0.9rem; margin-top:15px;">Lord</div>
-                <div style="font-size:1.3rem;">${record.lord || 'Information Missing'}</div>
-                <div style="color:#888; font-size:0.9rem;">House of ${record.lord_family || 'Unknown'}</div>
-            </div>
+            <div class="label">Held of</div>
+            <div class="value" style="text-decoration: underline;">${record.overlord || 'The Crown'}</div>
+            
+            <div class="label">Lord</div>
+            <div class="value">${record.lord || '<em>Record Missing</em>'}</div>
+            <div class="house">House of ${record.lord_family || 'Unknown'}</div>
         </div>
 
-        <details class="history-section" style="margin-top:20px;">
-            <summary>History</summary>
-            <p style="font-size:0.95rem; line-height:1.6;">${record.description || "No description available for this period."}</p>
+        <details class="history-section" open>
+            <summary>History & Notes</summary>
+            <div class="description">${record.description || "Historical details for this period are currently being researched."}</div>
         </details>
     `;
 }
