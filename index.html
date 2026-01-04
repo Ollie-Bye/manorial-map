@@ -5,85 +5,37 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         <style>
-    @import url('https://fonts.googleapis.com/css2?family=ABeeZee&display=swap');
+    /* Sidebar Panels */
+.tenure-panel {
+    background: #f9f7f2;
+    border: 1px solid #d4c5a9;
+    padding: 15px;
+    margin-top: 20px;
+    font-family: 'Crimson Text', serif;
+}
 
-    body { 
-        margin: 0; 
-        display: flex; 
-        height: 100vh; 
-        background: rgb(24, 34, 43); /* Dark Blue */
-        color: rgb(240, 240, 240); /* Near White */
-        font-family: 'ABeeZee', sans-serif;
-    }
+/* History Dropdown Logic */
+.history-section summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 10px 0;
+    list-style: none; /* Removes default arrow */
+    display: flex;
+    justify-content: space-between;
+}
 
-    #sidebar { 
-        width: 380px; 
-        background: rgb(34, 48, 60); /* Blue */
-        display: flex;
-        flex-direction: column;
-        padding: 0;
-        border-right: 1px solid rgba(255,255,255,0.1);
-    }
+.history-section summary::-webkit-details-marker {
+    display: none; /* Hides arrow in Safari */
+}
 
-    /* Header & Date Controls */
-    .controls-container {
-        padding: 20px;
-        text-align: center;
-        background: rgb(24, 34, 43);
-    }
+.history-section summary:after {
+    content: "︾"; /* Your exact icon */
+    color: #6a8cab;
+}
 
-    .year-display {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        font-size: 3rem;
-    }
-
-    .arrow {
-        color: rgb(106, 140, 171); /* Light Blue */
-        cursor: pointer;
-        user-select: none;
-    }
-
-    input#yearInput {
-        background: transparent;
-        border: none;
-        color: white;
-        font-family: inherit;
-        font-size: 3rem;
-        width: 140px;
-        text-align: center;
-    }
-
-    /* List of Objects */
-    #objects-list {
-        flex-grow: 1;
-        overflow-y: auto;
-        padding: 10px;
-    }
-
-    .manor-card {
-        background: transparent;
-        margin-bottom: 15px;
-        border-radius: 8px;
-    }
-
-    .tenure-panel {
-        background: rgb(24, 34, 43);
-        padding: 15px;
-        border-radius: 10px;
-        margin-top: 10px;
-        font-size: 0.9rem;
-    }
-
-    .type-pill {
-        background: white;
-        color: black;
-        border-radius: 20px;
-        padding: 5px 15px;
-        display: inline-block;
-        margin-bottom: 10px;
+.history-section[open] summary:after {
+    content: "︽";
+}
     }
 </style>
 
@@ -120,179 +72,110 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// --- GLOBAL STATE ---
+let currentHistory = {};
 let currentShapes = null;
-let currentHistory = null;
-let geojsonLayer = null;
+let map, geojsonLayer;
+let selectedUnit = null;
 
-let selectedUnit = null; // Stores one unit_id
-let activeUnits = [];   // Stores array of unit_ids
-const activeColors = {}; // Stores color assignment for each ID
+// 1. Initialize the Map
+map = L.map('map').setView([50.75, -2.2], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// --- INITIALIZATION ---
-async function loadDorset() {
+// 2. Load the Data
+async function loadData() {
     try {
-        const [shapeRes, histRes] = await Promise.all([
-            fetch('./data/dorset/dorset_shapes.json'),
-            fetch('./data/dorset/dorset_history.json')
-        ]);
-        currentShapes = await shapeRes.json();
-        currentHistory = await histRes.json();
+        // Load your new JSON
+        const historyRes = await fetch('data/dorset/dorset_history.json');
+        currentHistory = await historyRes.json();
+
+        // Load your GeoJSON shapes
+        const shapesRes = await fetch('data/dorset/shapes.json'); // Ensure this filename is correct!
+        currentShapes = await shapesRes.json();
+
         renderMap();
     } catch (err) {
-        console.error("Data load error:", err);
+        console.error("Error loading data files:", err);
     }
 }
 
-const map = L.map('map').setView([50.74, -2.21], 10);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-// --- CORE LOGIC: MAP RENDERING ---
 function renderMap() {
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
     const year = parseInt(document.getElementById('yearInput').value);
 
     geojsonLayer = L.geoJSON(currentShapes, {
+        filter: (feature) => {
+            const id = feature.properties.unit_id;
+            const history = currentHistory[id] || [];
+            const record = history.find(r => year >= r.start && year <= r.end);
+
+            // If there's a record, and it specifies a geometry_file, 
+            // only show this polygon if it matches that file name.
+            if (record && record.geometry_file) {
+                return feature.properties.file_name === record.geometry_file;
+            }
+            return true; // Otherwise show the base polygon
+        },
         style: (feature) => {
             const id = feature.properties.unit_id;
-            if (id === selectedUnit) return { color: "#3498db", weight: 5, fillOpacity: 0.8, zIndex: 1000 };
-            if (activeUnits.includes(id)) return { color: getUnitColor(id), weight: 2, fillOpacity: 0.5 };
-            return { color: "#7f8c8d", weight: 1, fillOpacity: 0.1 }; // Inactive
+            const isSelected = (id === selectedUnit);
+            return {
+                color: isSelected ? "#3498db" : "#7f8c8d",
+                weight: isSelected ? 4 : 1,
+                fillOpacity: isSelected ? 0.7 : 0.2,
+                fillColor: "#2c3e50"
+            };
         },
         onEachFeature: (feature, layer) => {
-            layer.on('click', () => handleUnitSelection(feature.properties.unit_id));
+            layer.on('click', () => {
+                selectedUnit = feature.properties.unit_id;
+                renderMap();
+                updateSidebar(year);
+            });
         }
     }).addTo(map);
 
     updateSidebar(year);
 }
 
-// --- SELECTION LOGIC ---
-function handleUnitSelection(id) {
-    if (selectedUnit === id) {
-        // If clicking selected, it stays selected (or you could toggle it)
-    } else {
-        if (selectedUnit && !activeUnits.includes(selectedUnit)) {
-            activeUnits.push(selectedUnit);
-        }
-        selectedUnit = id;
-        // Remove from active if it's now selected
-        activeUnits = activeUnits.filter(uid => uid !== id);
-    }
-    renderMap();
-}
-
-function getUnitColor(id) {
-    if (!activeColors[id]) {
-        const hues = [200, 280, 150, 30, 330]; // Blue, Purple, Green, Orange, Pink
-        const hue = hues[Object.keys(activeColors).length % hues.length];
-        activeColors[id] = `hsl(${hue}, 70%, 60%)`;
-    }
-    return activeColors[id];
-}
-
-// --- SIDEBAR UI GENERATION ---
 function updateSidebar(year) {
-    const list = document.getElementById('objects-list');
-    list.innerHTML = ""; 
+    const sidebar = document.getElementById('sidebar-content');
+    if (!selectedUnit || !currentHistory[selectedUnit]) return;
 
-    // 1. Draw Selected Unit
-    if (selectedUnit) {
-        const feature = currentShapes.features.find(f => f.properties.unit_id === selectedUnit);
-        const history = currentHistory[selectedUnit] || [];
-        const record = history.find(r => year >= r.start && year <= r.end);
-        
-        const card = document.createElement('div');
-        card.className = "manor-card";
-        card.innerHTML = `
-            <div class="card-header">
-                <div>
-                    <div style="font-size: 0.9rem; opacity: 0.8;">${record?.prefix || 'Manor of'}</div>
-                    <div style="font-size: 1.8rem; font-weight: bold;">${feature.properties.name}</div>
-                </div>
-                <div style="font-size: 1.5rem; cursor:pointer;">
-                    <span onclick="minimizeUnit('${selectedUnit}')">➖</span>
-                    <span onclick="closeUnit('${selectedUnit}')">✖</span>
-                </div>
+    const history = currentHistory[selectedUnit];
+    const record = history.find(r => year >= r.start && year <= r.end) || history[0];
+
+    const moietyLabel = record.moiety ? `(${record.moiety} Moiety)` : "";
+
+    sidebar.innerHTML = `
+        <div class="unit-header">
+            <div style="color: #666; text-transform: uppercase; font-size: 0.8rem;">${record.prefix}</div>
+            <h1 style="margin: 0; font-family: 'Old Standard TT', serif;">${record.name || selectedUnit}</h1>
+        </div>
+
+        <div class="tenure-panel">
+            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid #d4c5a9; padding-bottom:5px;">
+                <span style="font-weight:bold;">Tenure</span>
+                <span style="font-style:italic; color:#888;">${moietyLabel}</span>
             </div>
-            <div class="history-text">${record?.notes || 'No description available.'}</div>
-            <div style="text-align:center; color:rgb(106,140,171); cursor:pointer;">︾</div>
             
-            <div class="tenure-panel">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size: 1.1rem;">Tenure (1st Moiety)</span>
-                    <span style="opacity:0.6">❓</span>
-                </div>
-                <div style="margin-top:10px;">
-                    <div style="color:rgb(106,140,171)">Overlord</div>
-                    <div style="text-decoration: underline;">${record?.overlord || 'None'}</div>
-                    <div style="font-size:0.8rem;">Of the <span style="text-decoration: underline;">${record?.house || 'N/A'}</span></div>
-                    <div style="font-size:0.8rem;">As part of the <span style="text-decoration: underline;">${record?.honour || 'N/A'}</span></div>
-                    <div style="color:rgb(106,140,171); margin-top:10px;">Lord</div>
-                    <div style="font-size:1.2rem;">${record?.lord || 'None'}</div>
-                </div>
+            <div style="margin-top:15px;">
+                <div style="color:#6a8cab; font-size:0.9rem;">Held of</div>
+                <div style="text-decoration: underline;">${record.overlord || 'The King'}</div>
+                
+                <div style="color:#6a8cab; font-size:0.9rem; margin-top:15px;">Lord</div>
+                <div style="font-size:1.3rem;">${record.lord || '<em>Information Missing</em>'}</div>
+                <div style="color:#888; font-size:0.9rem;">House of ${record.lord_family || 'Unknown'}</div>
             </div>
-        `;
-        list.appendChild(card);
-    }
+        </div>
 
-    // 2. Draw Active Units
-    activeUnits.forEach(id => {
-        const feature = currentShapes.features.find(f => f.properties.unit_id === id);
-        const activeCard = document.createElement('div');
-        activeCard.style = `border-left: 5px solid ${getUnitColor(id)}; padding: 10px; background: rgba(0,0,0,0.2); margin-top:10px; display:flex; justify-content:space-between; align-items:center; border-radius: 4px;`;
-        activeCard.innerHTML = `
-            <span>${feature.properties.name}</span>
-            <div style="cursor:pointer;">
-                <span onclick="maximizeUnit('${id}')">📋</span>
-                <span onclick="closeUnit('${id}')">✖</span>
-            </div>
-        `;
-        list.appendChild(activeCard);
-    });
+        <details class="history-section" style="margin-top:20px;">
+            <summary>History</summary>
+            <p style="font-size:0.95rem; line-height:1.6;">${record.description || "No description available for this period."}</p>
+        </details>
+    `;
 }
 
-// --- INTERFACE HELPERS ---
-function minimizeUnit(id) {
-    if (!activeUnits.includes(id)) activeUnits.push(id);
-    selectedUnit = null;
-    renderMap();
-}
-
-function closeUnit(id) {
-    activeUnits = activeUnits.filter(uid => uid !== id);
-    if (selectedUnit === id) selectedUnit = null;
-    renderMap();
-}
-
-function maximizeUnit(id) {
-    handleUnitSelection(id);
-}
-
-function changeYear(delta) {
-    const input = document.getElementById('yearInput');
-    const slider = document.getElementById('yearSlider');
-    const newYear = parseInt(input.value) + delta;
-    input.value = newYear;
-    slider.value = newYear;
-    renderMap();
-}
-
-function updateYear(val) {
-    document.getElementById('yearSlider').value = val;
-    renderMap();
-}
-
-document.getElementById('yearSlider').oninput = function() {
-    document.getElementById('yearInput').value = this.value;
-    renderMap();
-};
-
-document.getElementById('yearInput').onchange = function() {
-    updateYear(this.value);
-};
-
-// Start
-loadDorset();
+// Start the app
+loadData();
 </script>
