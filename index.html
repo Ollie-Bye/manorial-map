@@ -22,67 +22,53 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map').setView([50.74, -2.21], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+// Global variables to store our "Brain" and "Body"
+let manifest = null;
+let currentShapes = null;
+let currentHistory = null;
+const map = L.map('map').setView([52.0, -1.5], 7); // Start centered on England
 
-    let currentShapes = null;
-    let currentHistory = null;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // THE FETCH MAGIC
-    // This function can load ANY county just by changing the name
- async function loadCounty(countyName) {
-    // We use the countyName variable to build the specific filename
-    const shapePath = `data/${countyName}/${countyName}_shapes.json`;
-    const historyPath = `data/${countyName}/${countyName}_history.json`;
-
-    console.log("Fetching from:", shapePath);
-
-    try {
-        const shapeRes = await fetch(shapePath);
-        if (!shapeRes.ok) throw new Error(`Status ${shapeRes.status} for ${shapePath}`);
-        currentShapes = await shapeRes.json();
-
-        const historyRes = await fetch(historyPath);
-        if (!historyRes.ok) throw new Error(`Status ${historyRes.status} for ${historyPath}`);
-        currentHistory = await historyRes.json();
-
-        renderMap();
-        console.log("Success! Data rendered.");
-    } catch (err) {
-        console.error("Fetch Error:", err);
-    }
+// 1. Load the Manifest first
+async function init() {
+    const response = await fetch('data/manifest.json');
+    manifest = await response.json();
+    setupCountySelector();
 }
 
-    function renderMap() {
-        const year = document.getElementById('yearSlider').value;
-        
-        // Clear old layer
-        map.eachLayer(lyr => { if(lyr.feature) map.removeLayer(lyr); });
+// 2. Dynamically build a dropdown menu (or you can just click the map)
+function setupCountySelector() {
+    const selector = document.createElement('select');
+    selector.style.position = 'absolute';
+    selector.style.top = '10px';
+    selector.style.left = '50px';
+    selector.style.zIndex = '1000';
+    
+    selector.innerHTML = '<option>Select a County</option>' + 
+        manifest.counties.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    
+    selector.onchange = (e) => loadCounty(e.target.value);
+    document.body.appendChild(selector);
+}
 
-        L.geoJSON(currentShapes, {
-            style: { color: 'orange', fillOpacity: 0.4 },
-            onEachFeature: (feature, layer) => {
-                layer.on('click', () => {
-                    const info = currentHistory.find(h => 
-                        h.id === feature.properties.unit_id && 
-                        year >= h.start && year <= h.end
-                    );
-                    
-                    document.getElementById('details').innerHTML = info ? 
-                        `<div class="info-box"><h3>${info.id}</h3><p>Lord: ${info.lord}</p></div>` : 
-                        `<div class="info-box">No data for ${year}</div>`;
-                });
-            }
-        }).addTo(map);
-    }
+// 3. The "Loader" - This works for ANY county you add in the future
+async function loadCounty(countyId) {
+    const county = manifest.counties.find(c => c.id === countyId);
+    
+    // Fetch both files at once
+    const [shapeRes, histRes] = await Promise.all([
+        fetch(`data/${countyId}/${countyId}_shapes.json`),
+        fetch(`data/${countyId}/${countyId}_history.json`)
+    ]);
 
-    document.getElementById('yearSlider').oninput = (e) => {
-        document.getElementById('yearLabel').innerText = e.target.value;
-        renderMap();
-    };
+    currentShapes = await shapeRes.json();
+    currentHistory = await histRes.json();
 
-    // Initial load
-    loadCounty('dorset');
-</script>
-</body>
-</html>
+    map.flyTo(county.center, county.zoom);
+    renderMap();
+}
+
+// ... Keep your existing renderMap and slider logic here ...
+
+init(); // Start the engine

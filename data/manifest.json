@@ -1,0 +1,10 @@
+{
+  "counties": [
+    {
+      "id": "dorset",
+      "name": "Dorset",
+      "center": [50.74, -2.21],
+      "zoom": 10
+    }
+  ]
+}
