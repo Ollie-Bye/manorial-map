@@ -22,55 +22,32 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// 1. GLOBAL VARIABLES
-let manifest = null;
+// 1. Setup Map
+const map = L.map('map').setView([50.74, -2.21], 10); // Starts right over Dorset
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// 2. Global Data Storage
 let currentShapes = null;
 let currentHistory = null;
 let geojsonLayer = null;
 
-const map = L.map('map').setView([52.0, -1.5], 7);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-// 2. THE INITIALIZER
-async function init() {
+// 3. The Simple Loader (Points directly to your folders)
+async function loadDorset() {
     try {
-        const response = await fetch('./data/manifest.json');
-        manifest = await response.json();
-        setupCountySelector();
-    } catch (err) {
-        console.error("Failed to load manifest:", err);
-    }
-}
-
-// 3. DROPDOWN MENU
-function setupCountySelector() {
-    const selector = document.createElement('select');
-    selector.style = "position:absolute; top:10px; left:60px; z-index:1000; padding:5px;";
-    selector.innerHTML = '<option value="">Select a County</option>' + 
-        manifest.counties.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-    
-    selector.onchange = (e) => { if(e.target.value) loadCounty(e.target.value); };
-    document.body.appendChild(selector);
-}
-
-// 4. THE LOADER
-async function loadCounty(countyId) {
-    const county = manifest.counties.find(c => c.id === countyId);
-    try {
-        const [shapeRes, histRes] = await Promise.all([
-            fetch(`./data/${countyId}/${countyId}_shapes.json`),
-            fetch(`./data/${countyId}/${countyId}_history.json`)
-        ]);
+        const shapeRes = await fetch('./data/dorset/dorset_shapes.json');
+        const histRes = await fetch('./data/dorset/dorset_history.json');
+        
         currentShapes = await shapeRes.json();
         currentHistory = await histRes.json();
-        map.flyTo(county.center, county.zoom);
+        
+        console.log("Dorset data loaded successfully!");
         renderMap();
     } catch (err) {
-        console.error("Error loading county data:", err);
+        console.error("Error: Could not find the files in /data/dorset/. Check your folder names!", err);
     }
 }
 
-// 5. THE RENDERER (This was missing!)
+// 4. The Renderer
 function renderMap() {
     const selectedYear = parseInt(document.getElementById('yearSlider').value);
     if (geojsonLayer) map.removeLayer(geojsonLayer);
@@ -81,22 +58,24 @@ function renderMap() {
             layer.on('click', () => {
                 const history = currentHistory[feature.properties.unit_id] || [];
                 const record = history.find(r => selectedYear >= r.start && selectedYear <= r.end);
+                
                 document.getElementById('details').innerHTML = record ? `
                     <div class="info-box">
                         <h3>${feature.properties.name}</h3>
                         <p><b>Lord:</b> ${record.lord}</p>
                         <p><b>Notes:</b> ${record.notes || ''}</p>
-                    </div>` : `<h3>${feature.properties.name}</h3><p>No data for this year.</p>`;
+                    </div>` : `<h3>${feature.properties.name}</h3><p>No data for 1066-1922.</p>`;
             });
         }
     }).addTo(map);
 }
 
-// 6. SLIDER LOGIC (This was also missing!)
+// 5. Slider Logic
 document.getElementById('yearSlider').oninput = function() {
     document.getElementById('yearLabel').innerText = this.value;
     if (currentShapes) renderMap();
 };
 
-init(); 
+// 6. Start!
+loadDorset();
 </script>
