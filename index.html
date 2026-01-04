@@ -31,10 +31,10 @@ let geojsonLayer = null;
 const map = L.map('map').setView([52.0, -1.5], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// 2. THE INITIALIZER (Loads manifest on page load)
+// 2. THE INITIALIZER
 async function init() {
     try {
-        const response = await fetch('data/manifest.json');
+        const response = await fetch('./data/manifest.json');
         manifest = await response.json();
         setupCountySelector();
     } catch (err) {
@@ -42,11 +42,10 @@ async function init() {
     }
 }
 
-// 3. DROPDOWN MENU SETUP
+// 3. DROPDOWN MENU
 function setupCountySelector() {
     const selector = document.createElement('select');
     selector.style = "position:absolute; top:10px; left:60px; z-index:1000; padding:5px;";
-    
     selector.innerHTML = '<option value="">Select a County</option>' + 
         manifest.counties.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     
@@ -54,35 +53,26 @@ function setupCountySelector() {
     document.body.appendChild(selector);
 }
 
-// 4. THE LOADER (Fetches specific county files)
+// 4. THE LOADER
 async function loadCounty(countyId) {
     const county = manifest.counties.find(c => c.id === countyId);
-    
     try {
-        // We use [ ] to fetch both files simultaneously
         const [shapeRes, histRes] = await Promise.all([
             fetch(`./data/${countyId}/${countyId}_shapes.json`),
             fetch(`./data/${countyId}/${countyId}_history.json`)
         ]);
-
-        if (!shapeRes.ok || !histRes.ok) throw new Error("Files not found");
-
         currentShapes = await shapeRes.json();
         currentHistory = await histRes.json();
-
         map.flyTo(county.center, county.zoom);
         renderMap();
     } catch (err) {
         console.error("Error loading county data:", err);
-        alert("Could not load county data. Check file names!");
     }
 }
 
-// 5. THE RENDERER (This is the "Drawing" logic)
+// 5. THE RENDERER (This was missing!)
 function renderMap() {
     const selectedYear = parseInt(document.getElementById('yearSlider').value);
-    
-    // Clear old shapes before drawing new ones
     if (geojsonLayer) map.removeLayer(geojsonLayer);
 
     geojsonLayer = L.geoJSON(currentShapes, {
@@ -91,23 +81,22 @@ function renderMap() {
             layer.on('click', () => {
                 const history = currentHistory[feature.properties.unit_id] || [];
                 const record = history.find(r => selectedYear >= r.start && selectedYear <= r.end);
-                
                 document.getElementById('details').innerHTML = record ? `
                     <div class="info-box">
                         <h3>${feature.properties.name}</h3>
                         <p><b>Lord:</b> ${record.lord}</p>
-                        <p><b>Notes:</b> ${record.notes || 'No extra data'}</p>
+                        <p><b>Notes:</b> ${record.notes || ''}</p>
                     </div>` : `<h3>${feature.properties.name}</h3><p>No data for this year.</p>`;
             });
         }
     }).addTo(map);
 }
 
-// 6. SLIDER LOGIC
+// 6. SLIDER LOGIC (This was also missing!)
 document.getElementById('yearSlider').oninput = function() {
     document.getElementById('yearLabel').innerText = this.value;
-    if (currentShapes) renderMap(); // Re-draw if data is loaded
+    if (currentShapes) renderMap();
 };
 
-// START
-init();
+init(); 
+</script>
